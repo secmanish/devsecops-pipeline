@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 
-app = FastAPI(title="Acme Portal API")
+app = FastAPI(title="Tasklane API")
 
 
 @app.get("/health")

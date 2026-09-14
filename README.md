@@ -1,11 +1,11 @@
 # DevSecOps Pipeline
 
 A security-integrated CI/CD pipeline — SAST, DAST, SCA, custom rules, policy
-gates, and vulnerability management — built around **Acme Portal**, a
-multi-tenant invoice and expense portal that serves as its target application.
+gates, and vulnerability management — built around **Tasklane**, a
+multi-tenant project-management tool that serves as its target application.
 
 > [!WARNING]
-> Acme Portal is a security testing target. Run it locally or in an ephemeral,
+> Tasklane is a security testing target. Run it locally or in an ephemeral,
 > access-restricted environment, and never expose it to a public network. Seed
 > it with synthetic data only.
 
@@ -20,12 +20,24 @@ multi-tenant invoice and expense portal that serves as its target application.
 
 The two services run independently.
 
+**Development**
+
 ```bash
 cd frontend && npm ci && npm run dev
 ```
 
 ```bash
 cd backend && uv sync && uv run fastapi dev
+```
+
+**Production build**
+
+```bash
+cd frontend && npm ci && npm run build && npm run start
+```
+
+```bash
+cd backend && uv sync && uv run fastapi run
 ```
 
 The client serves on `http://localhost:3000` and the API on

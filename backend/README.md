@@ -1,12 +1,21 @@
-# Acme Portal API
+# Tasklane API
 
-The FastAPI backend for Acme Portal.
+The FastAPI backend for Tasklane.
 
 ## Running
+
+**Development**
 
 ```bash
 uv sync
 uv run fastapi dev
+```
+
+**Production**
+
+```bash
+uv sync
+uv run fastapi run
 ```
 
 The API serves on `http://localhost:8000`. Interactive documentation is at

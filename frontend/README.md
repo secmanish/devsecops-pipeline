@@ -1,12 +1,22 @@
-# Acme Portal Client
+# Tasklane Client
 
-The Next.js frontend for Acme Portal.
+The Next.js frontend for Tasklane.
 
 ## Running
+
+**Development**
 
 ```bash
 npm ci
 npm run dev
+```
+
+**Production build**
+
+```bash
+npm ci
+npm run build
+npm run start
 ```
 
 The client serves on `http://localhost:3000` and expects the API at
