@@ -42,3 +42,21 @@ cd backend && uv sync && uv run fastapi run
 
 The client serves on `http://localhost:3000` and the API on
 `http://localhost:8000`, with its OpenAPI schema at `/openapi.json`.
+
+## Pre-commit hooks
+
+Gitleaks, ruff, and ESLint run locally on every commit — fast checks against
+staged changes, before anything reaches CI.
+
+```bash
+uv tool install pre-commit
+pre-commit install
+```
+
+The ESLint hook runs the frontend's own `npm run lint`, so `cd frontend && npm
+ci` first if you haven't already. To run every hook against the full repo
+instead of just staged files:
+
+```bash
+pre-commit run --all-files
+```
