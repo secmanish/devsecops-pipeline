@@ -1,0 +1,67 @@
+rules:
+  - id: fastapi-route-missing-auth
+    languages: [python]
+    severity: ERROR
+    message: >-
+      Route `$FUNC` has no authentication dependency. Add a parameter that uses
+      `Depends(get_current_user)`, or `dependencies=[Depends(get_current_user)]`
+      on the route decorator. Intentionally public routes are listed in this
+      rule's exclusions.
+    metadata:
+      category: security
+      cwe:
+        - "CWE-306: Missing Authentication for Critical Function"
+      owasp:
+        - "A07:2025 - Authentication Failures"
+      confidence: MEDIUM
+      likelihood: HIGH
+      impact: HIGH
+    patterns:
+      - pattern-either:
+          - pattern: |
+              @$APP.$METHOD(...)
+              def $FUNC(...): ...
+          - pattern: |
+              @$APP.$METHOD(...)
+              async def $FUNC(...): ...
+      - metavariable-regex:
+          metavariable: $METHOD
+          regex: ^(get|post|put|patch|delete)$
+
+      # Authenticated on the decorator.
+      - pattern-not: |
+          @$APP.$METHOD(..., dependencies=[..., Depends(get_current_user), ...], ...)
+          def $FUNC(...): ...
+      - pattern-not: |
+          @$APP.$METHOD(..., dependencies=[..., Depends(get_current_user), ...], ...)
+          async def $FUNC(...): ...
+
+      # Authenticated through a parameter: plain default, typed default, Annotated.
+      - pattern-not: |
+          @$APP.$METHOD(...)
+          def $FUNC(..., $P = Depends(get_current_user), ...): ...
+      - pattern-not: |
+          @$APP.$METHOD(...)
+          async def $FUNC(..., $P = Depends(get_current_user), ...): ...
+      - pattern-not: |
+          @$APP.$METHOD(...)
+          def $FUNC(..., $P: $T = Depends(get_current_user), ...): ...
+      - pattern-not: |
+          @$APP.$METHOD(...)
+          async def $FUNC(..., $P: $T = Depends(get_current_user), ...): ...
+      - pattern-not: |
+          @$APP.$METHOD(...)
+          def $FUNC(..., $P: Annotated[$T, Depends(get_current_user)], ...): ...
+      - pattern-not: |
+          @$APP.$METHOD(...)
+          async def $FUNC(..., $P: Annotated[$T, Depends(get_current_user)], ...): ...
+
+      # Intentionally public routes.
+      - pattern-not: |
+          @$APP.get("/health", ...)
+          def $FUNC(...): ...
+      - pattern-not: |
+          @$APP.get("/health", ...)
+          async def $FUNC(...): ...
+
+      - focus-metavariable: $FUNC
