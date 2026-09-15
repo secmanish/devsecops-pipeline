@@ -1,0 +1,29 @@
+name: SAST Scan
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  semgrep:
+    name: Semgrep (SAST)
+    runs-on: ubuntu-latest
+    container:
+      image: semgrep/semgrep:1.177.0@sha256:acaac22ffc7b7cc5926de0751b223bce0b2491c33d18422fa72f632c78d81198
+    env:
+      SEMGREP_RULES: security/semgrep/ p/owasp-top-ten p/python p/typescript p/nextjs
+      SEMGREP_SEND_METRICS: "off"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Scan code
+        run: semgrep scan --error --sarif-output=semgrep.sarif
+
+      - name: Upload SARIF
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: semgrep-sarif
+          path: semgrep.sarif

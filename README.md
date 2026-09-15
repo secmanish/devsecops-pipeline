@@ -11,10 +11,11 @@ multi-tenant project-management tool that serves as its target application.
 
 ## Layout
 
-| Path        | Contents                    |
-| ----------- | --------------------------- |
-| `frontend/` | Next.js (TypeScript) client |
-| `backend/`  | FastAPI (Python) service    |
+| Path        | Contents                       |
+| ----------- | ------------------------------ |
+| `frontend/` | Next.js (TypeScript) client    |
+| `backend/`  | FastAPI (Python) service       |
+| `security/` | Custom scanner rules (Semgrep) |
 
 ## Running
 
