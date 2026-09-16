@@ -11,11 +11,12 @@ multi-tenant project-management tool that serves as its target application.
 
 ## Layout
 
-| Path        | Contents                       |
-| ----------- | ------------------------------ |
-| `frontend/` | Next.js (TypeScript) client    |
-| `backend/`  | FastAPI (Python) service       |
-| `security/` | Custom scanner rules (Semgrep) |
+| Path        | Contents                                        |
+| ----------- | ----------------------------------------------- |
+| `frontend/` | Next.js (TypeScript) client                     |
+| `backend/`  | FastAPI (Python) service                        |
+| `infra/`    | Terraform infrastructure definitions            |
+| `security/` | Custom scanner rules, policies and configuration |
 
 ## Running
 
