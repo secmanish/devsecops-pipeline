@@ -41,6 +41,20 @@ cd frontend && npm ci && npm run build && npm run start
 cd backend && uv sync && uv run fastapi run
 ```
 
+**Containers**
+
+```bash
+cd frontend && docker build -t tasklane-frontend .
+docker run --rm -p 3000:3000 tasklane-frontend
+```
+
+```bash
+cd backend && docker build -t tasklane-backend .
+docker run --rm -p 8000:8000 tasklane-backend
+```
+
+Both images run as a non-root user and carry no build toolchain.
+
 The client serves on `http://localhost:3000` and the API on
 `http://localhost:8000`, with its OpenAPI schema at `/openapi.json`.
 

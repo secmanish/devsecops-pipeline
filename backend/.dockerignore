@@ -1,0 +1,12 @@
+# Local virtualenv and caches
+.venv/
+__pycache__/
+*.py[cod]
+.ruff_cache/
+
+# Secrets and local environment
+.env
+.env.*
+
+# Editor / OS
+.DS_Store
