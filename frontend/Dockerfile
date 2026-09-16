@@ -17,6 +17,19 @@ ENV NODE_ENV=production \
     HOSTNAME=0.0.0.0 \
     PORT=3000
 
+# Debian has published a fix for this; this base image predates it. Named
+# individually rather than upgraded wholesale, which Docker's own guidance
+# advises against for parent-image packages.
+RUN apt-get update \
+    && apt-get install --yes --no-install-recommends --only-upgrade \
+        libpcre2-8-0 \
+    && rm -rf /var/lib/apt/lists/*
+
+# The standalone server starts with `node server.js` and never invokes npm.
+# What npm bundles is the whole of this image's Node-package surface, so it goes
+# with it. The builder stage above still has npm, which is where `npm ci` runs.
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
+
 WORKDIR /app
 # standalone omits public/ and .next/static; server.js serves them once copied in.
 COPY --from=builder --chown=node:node /app/.next/standalone ./
