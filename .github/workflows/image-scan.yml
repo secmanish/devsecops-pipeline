@@ -67,14 +67,19 @@ jobs:
             --format sarif \
             --output "trivy-image-$IMAGE.sarif"
 
-      # `--severity` filters the report itself, so gating is a second pass.
-      - name: Gate on HIGH and CRITICAL
+      # A second pass, because `--severity` filters the report itself and the
+      # artifact above keeps every severity. `--ignore-unfixed` narrows the gate
+      # to what a rebuild can act on: the base distribution ships CRITICALs with
+      # no patched package, and blocking on those would mute the gate rather than
+      # harden the image. They stay in the SARIF and in the benchmark below.
+      - name: Gate on fixable HIGH and CRITICAL
         run: |
           trivy image "$IMAGE_REF" \
             --scanners vuln,secret \
             --image-config-scanners misconfig,secret \
             --skip-db-update \
             --severity HIGH,CRITICAL \
+            --ignore-unfixed \
             --exit-code 1
 
       # Compliance mapping, reported rather than enforced: a benchmark written
