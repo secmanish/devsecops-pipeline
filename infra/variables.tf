@@ -13,6 +13,12 @@ variable "aws_region" {
   default     = "eu-west-1"
 }
 
+variable "availability_zones" {
+  description = "Availability zones the subnets are placed in, named explicitly so the set cannot change when a zone is added to or withdrawn from the region."
+  type        = list(string)
+  default     = ["eu-west-1a", "eu-west-1b"]
+}
+
 variable "vpc_cidr" {
   description = "IPv4 CIDR block for the VPC."
   type        = string

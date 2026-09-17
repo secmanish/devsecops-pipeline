@@ -1,24 +1,10 @@
 # Object storage for task attachments, plus the bucket receiving its access
 # logs. Bucket names are globally unique, hence the account ID suffix.
 
-resource "aws_kms_key" "storage" {
-  description             = "${var.project_name} object storage encryption"
-  enable_key_rotation     = true
-  deletion_window_in_days = 30
-
-  tags = {
-    Name = "${var.project_name}-storage"
-  }
-}
-
-resource "aws_kms_alias" "storage" {
-  name          = "alias/${var.project_name}-storage"
-  target_key_id = aws_kms_key.storage.key_id
-}
-
 # --- Access log bucket -------------------------------------------------------
 
 resource "aws_s3_bucket" "logs" {
+  #checkov:skip=CKV_AWS_144:No cross-region recovery requirement for access logs.
   bucket = "${var.project_name}-access-logs-${data.aws_caller_identity.current.account_id}"
 
   tags = {
@@ -143,6 +129,11 @@ data "aws_iam_policy_document" "logs_bucket" {
   }
 }
 
+resource "aws_s3_bucket_notification" "logs" {
+  bucket      = aws_s3_bucket.logs.id
+  eventbridge = true
+}
+
 resource "aws_s3_bucket_policy" "logs" {
   bucket = aws_s3_bucket.logs.id
   policy = data.aws_iam_policy_document.logs_bucket.json
@@ -153,6 +144,7 @@ resource "aws_s3_bucket_policy" "logs" {
 # --- Attachment bucket -------------------------------------------------------
 
 resource "aws_s3_bucket" "attachments" {
+  #checkov:skip=CKV_AWS_144:Versioning covers the recovery case; no second region to replicate to.
   bucket = "${var.project_name}-attachments-${data.aws_caller_identity.current.account_id}"
 
   tags = {

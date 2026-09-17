@@ -3,6 +3,11 @@
 
 data "aws_availability_zones" "available" {
   state = "available"
+
+  filter {
+    name   = "zone-name"
+    values = var.availability_zones
+  }
 }
 
 data "aws_caller_identity" "current" {}
@@ -127,69 +132,6 @@ resource "aws_vpc_security_group_ingress_rule" "database_postgres" {
   from_port         = 5432
   to_port           = 5432
   ip_protocol       = "tcp"
-}
-
-# Customer-managed so the key can be audited, rotated and revoked. CloudWatch
-# Logs would otherwise use an AWS-owned key.
-resource "aws_kms_key" "logs" {
-  description             = "${var.project_name} CloudWatch Logs encryption"
-  enable_key_rotation     = true
-  deletion_window_in_days = 30
-  policy                  = data.aws_iam_policy_document.logs_kms.json
-
-  tags = {
-    Name = "${var.project_name}-logs"
-  }
-}
-
-resource "aws_kms_alias" "logs" {
-  name          = "alias/${var.project_name}-logs"
-  target_key_id = aws_kms_key.logs.key_id
-}
-
-data "aws_iam_policy_document" "logs_kms" {
-  # Without this the key becomes unmanageable: IAM alone cannot grant access to
-  # a KMS key whose policy does not delegate to the account.
-  statement {
-    sid    = "DelegateToAccountIAM"
-    effect = "Allow"
-
-    principals {
-      type        = "AWS"
-      identifiers = ["arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"]
-    }
-
-    actions   = ["kms:*"]
-    resources = ["*"]
-  }
-
-  statement {
-    sid    = "AllowCloudWatchLogs"
-    effect = "Allow"
-
-    principals {
-      type        = "Service"
-      identifiers = ["logs.${var.aws_region}.amazonaws.com"]
-    }
-
-    actions = [
-      "kms:Encrypt*",
-      "kms:Decrypt*",
-      "kms:ReEncrypt*",
-      "kms:GenerateDataKey*",
-      "kms:Describe*",
-    ]
-
-    resources = ["*"]
-
-    # Scopes the grant to log groups in this account and region, so the service
-    # principal cannot be used to decrypt anything else the key protects.
-    condition {
-      test     = "ArnLike"
-      variable = "kms:EncryptionContext:aws:logs:arn"
-      values   = ["arn:aws:logs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:log-group:*"]
-    }
-  }
 }
 
 resource "aws_cloudwatch_log_group" "vpc_flow_logs" {

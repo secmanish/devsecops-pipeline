@@ -1,21 +1,6 @@
 # Postgres instance backing the application, in the private subnets. RDS
 # generates and rotates the master password, so no credential is in this module.
 
-resource "aws_kms_key" "database" {
-  description             = "${var.project_name} database encryption"
-  enable_key_rotation     = true
-  deletion_window_in_days = 30
-
-  tags = {
-    Name = "${var.project_name}-database"
-  }
-}
-
-resource "aws_kms_alias" "database" {
-  name          = "alias/${var.project_name}-database"
-  target_key_id = aws_kms_key.database.key_id
-}
-
 resource "aws_db_subnet_group" "main" {
   name_prefix = "${var.project_name}-"
   subnet_ids  = aws_subnet.private[*].id
