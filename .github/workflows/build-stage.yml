@@ -1,0 +1,227 @@
+name: Build Stage
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  trivy:
+    name: Trivy (Image)
+    runs-on: ubuntu-latest
+    strategy:
+      # Findings in one image should not hide findings in the other.
+      fail-fast: false
+      matrix:
+        image: [backend, frontend]
+    env:
+      TRIVY_VERSION: 0.74.0
+      TRIVY_SHA256: 2ae6fe3ee734b7fdf11335663e18c75ea12dccc76062f09f164a3b0f8be4371a
+      # `run:` cannot read the matrix, so the value is bound here. The directory
+      # name doubles as the build context and the image tag.
+      IMAGE: ${{ matrix.image }}
+      IMAGE_REF: tasklane-${{ matrix.image }}:ci
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Install Trivy
+        run: |
+          curl -sSfL "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz" \
+            -o "$RUNNER_TEMP/trivy.tar.gz"
+          echo "${TRIVY_SHA256}  $RUNNER_TEMP/trivy.tar.gz" | sha256sum -c -
+          tar -xz -C "$RUNNER_TEMP" -f "$RUNNER_TEMP/trivy.tar.gz" trivy
+          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+
+      - name: Build image
+        run: docker build --tag "$IMAGE_REF" "$IMAGE"
+
+      - name: Get date
+        id: date
+        run: echo "date=$(date -u +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
+
+      # Both databases download at runtime. Keyed per image because the matrix
+      # jobs run in parallel and would otherwise race to write one key.
+      - name: Restore Trivy databases
+        id: db-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cache/trivy/db
+            ~/.cache/trivy/policy
+          key: trivy-image-${{ matrix.image }}-${{ steps.date.outputs.date }}
+          restore-keys: trivy-image-${{ matrix.image }}-
+
+      - name: Update vulnerability DB
+        run: trivy image --download-db-only
+
+      # Every severity reaches the artifact; the gate below decides what blocks.
+      - name: Scan image
+        run: |
+          trivy image "$IMAGE_REF" \
+            --scanners vuln,secret \
+            --image-config-scanners misconfig,secret \
+            --skip-db-update \
+            --format sarif \
+            --output "trivy-image-$IMAGE.sarif"
+
+      # CycloneDX disables scanning, so this is inventory rather than findings —
+      # the SARIF above already carries those. Reuses the cached layer analysis.
+      - name: Generate SBOM
+        run: |
+          trivy image "$IMAGE_REF" \
+            --format cyclonedx \
+            --skip-db-update \
+            --output "sbom-$IMAGE.cdx.json"
+
+      # A second pass, because `--severity` filters the report itself.
+      # `--ignore-unfixed` narrows the gate to what a rebuild can act on.
+      - name: Gate on fixable HIGH and CRITICAL
+        run: |
+          trivy image "$IMAGE_REF" \
+            --scanners vuln,secret \
+            --image-config-scanners misconfig,secret \
+            --skip-db-update \
+            --severity HIGH,CRITICAL \
+            --ignore-unfixed \
+            --exit-code 1
+
+      # Compliance mapping, reported rather than enforced: a benchmark written
+      # for production hosts raises things a lab image should not fail on.
+      - name: CIS Docker Benchmark
+        if: always()
+        run: |
+          trivy image "$IMAGE_REF" \
+            --compliance docker-cis-1.6.0 \
+            --skip-db-update \
+            --format json \
+            --output "trivy-image-$IMAGE-cis.json"
+
+      # After the scans: the checks bundle arrives with the first misconfig scan,
+      # not with `--download-db-only`. `always()` keeps the cache warm on failure.
+      - name: Save Trivy databases
+        if: always() && steps.db-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cache/trivy/db
+            ~/.cache/trivy/policy
+          key: trivy-image-${{ matrix.image }}-${{ steps.date.outputs.date }}
+
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: trivy-image-${{ matrix.image }}-reports
+          path: |
+            trivy-image-${{ matrix.image }}.sarif
+            trivy-image-${{ matrix.image }}-cis.json
+            sbom-${{ matrix.image }}.cdx.json
+
+      # Handed to the signing job so it signs these exact bytes. A rebuild would
+      # differ: the runtime stages run `apt-get --only-upgrade`.
+      - name: Save image
+        if: github.event_name == 'push'
+        run: docker save "$IMAGE_REF" | gzip > "image-$IMAGE.tar.gz"
+
+      - name: Upload image
+        if: github.event_name == 'push'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: image-${{ matrix.image }}
+          path: image-${{ matrix.image }}.tar.gz
+          retention-days: 1
+
+  cosign:
+    name: Cosign (Sign)
+    needs: trivy
+    # Only merged code is published, so this check never appears on a pull
+    # request and cannot be a required one.
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        image: [backend, frontend]
+    # Kept out of the scan job above, which runs on pull requests: `permissions`
+    # is per job, so that job would hold these on every PR.
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    env:
+      COSIGN_VERSION: 3.1.3
+      COSIGN_SHA256: 4629c757b7618056f8ddd7e2625ae9fdd94c0372a65049520bc7d9df9efc7f71
+      IMAGE: ${{ matrix.image }}
+      LOCAL_REF: tasklane-${{ matrix.image }}:ci
+      REGISTRY: ghcr.io
+      OWNER: ${{ github.repository_owner }}
+      IMAGE_TAG: ${{ github.sha }}
+      GHCR_USER: ${{ github.actor }}
+      GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # The workflow path is part of the certificate, so renaming this file
+      # changes the identity every signature is verified against.
+      IDENTITY: https://github.com/${{ github.repository }}/.github/workflows/build-stage.yml@${{ github.ref }}
+      OIDC_ISSUER: https://token.actions.githubusercontent.com
+    steps:
+      # Checksum first, then Cosign verifies its own release bundle: a checksum
+      # published by the release it covers proves transit, not the release itself.
+      - name: Install Cosign
+        run: |
+          base="https://github.com/sigstore/cosign/releases/download/v${COSIGN_VERSION}"
+          curl -sSfL "$base/cosign-linux-amd64" -o "$RUNNER_TEMP/cosign"
+          curl -sSfL "$base/cosign-linux-amd64.sigstore.json" -o "$RUNNER_TEMP/cosign.sigstore.json"
+          echo "${COSIGN_SHA256}  $RUNNER_TEMP/cosign" | sha256sum -c -
+          chmod +x "$RUNNER_TEMP/cosign"
+          "$RUNNER_TEMP/cosign" verify-blob "$RUNNER_TEMP/cosign" \
+            --bundle "$RUNNER_TEMP/cosign.sigstore.json" \
+            --certificate-identity keyless@projectsigstore.iam.gserviceaccount.com \
+            --certificate-oidc-issuer https://accounts.google.com
+          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+
+      - name: Download image
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: image-${{ matrix.image }}
+
+      - name: Download SBOM
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: trivy-image-${{ matrix.image }}-reports
+
+      - name: Push to GHCR
+        id: push
+        run: |
+          docker load -i "image-$IMAGE.tar.gz"
+          # GHCR rejects an uppercase path, and the owner keeps its casing here.
+          owner=$(echo "$OWNER" | tr '[:upper:]' '[:lower:]')
+          target="$REGISTRY/$owner/tasklane-$IMAGE:$IMAGE_TAG"
+          echo "$GHCR_TOKEN" | docker login "$REGISTRY" -u "$GHCR_USER" --password-stdin
+          docker tag "$LOCAL_REF" "$target"
+          docker push "$target"
+          digest=$(docker inspect --format '{{index .RepoDigests 0}}' "$target")
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+
+      # Signed by digest, never by tag: a tag is a movable pointer.
+      - name: Sign and attest
+        env:
+          DIGEST: ${{ steps.push.outputs.digest }}
+        run: |
+          cosign sign --yes "$DIGEST"
+          cosign attest --yes --type cyclonedx \
+            --predicate "sbom-$IMAGE.cdx.json" "$DIGEST"
+
+      # `sign` exiting 0 says a signature was made, not that it is retrievable
+      # or carries the intended identity. This stage has no fixture PR; this is it.
+      - name: Verify
+        env:
+          DIGEST: ${{ steps.push.outputs.digest }}
+        run: |
+          cosign verify "$DIGEST" \
+            --certificate-identity "$IDENTITY" \
+            --certificate-oidc-issuer "$OIDC_ISSUER"
+          cosign verify-attestation "$DIGEST" --type cyclonedx \
+            --certificate-identity "$IDENTITY" \
+            --certificate-oidc-issuer "$OIDC_ISSUER"
