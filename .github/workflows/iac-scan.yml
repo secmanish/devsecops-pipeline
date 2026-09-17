@@ -1,0 +1,61 @@
+name: IaC Scan
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  # Checkov skips HCL it cannot parse, so this is the only gate on syntax.
+  terraform:
+    name: Terraform (validate)
+    runs-on: ubuntu-latest
+    env:
+      TERRAFORM_VERSION: 1.16.3
+      TERRAFORM_SHA256: 093b6ae9a2228af5029c41606bc96eb583553528aad1bfe7e0b4d62fc91e25d8
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Install Terraform
+        run: |
+          curl -sSfL "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip" \
+            -o "$RUNNER_TEMP/terraform.zip"
+          echo "${TERRAFORM_SHA256}  $RUNNER_TEMP/terraform.zip" | sha256sum -c -
+          unzip -q -d "$RUNNER_TEMP" "$RUNNER_TEMP/terraform.zip" terraform
+          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+
+      - name: Check formatting
+        run: terraform -chdir=infra fmt -check -recursive
+
+      # `-lockfile=readonly` rejects any provider the lock file does not record.
+      - name: Initialise
+        run: terraform -chdir=infra init -backend=false -lockfile=readonly
+
+      - name: Validate
+        run: terraform -chdir=infra validate
+
+  checkov:
+    name: Checkov (IaC)
+    runs-on: ubuntu-latest
+    container:
+      image: bridgecrew/checkov:3.3.18@sha256:56618a5aabf85b918329fd81b34c76ff54763a8c62936a5c58025716ba774cd1
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      # The unnamed frameworks duplicate other gates here. Any finding fails:
+      # checks carry no severity, so there is no threshold to set.
+      - name: Scan configuration
+        run: |
+          checkov --directory . \
+            --framework terraform dockerfile github_actions \
+            --compact \
+            --output cli --output sarif \
+            --output-file-path console,results_sarif.sarif
+
+      - name: Upload SARIF
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: checkov-sarif
+          path: results_sarif.sarif
