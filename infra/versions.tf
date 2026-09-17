@@ -1,8 +1,5 @@
-# Provider and version constraints for the Tasklane infrastructure module.
-#
-# No state backend is configured and no credentials are referenced. The module
-# describes the infrastructure the application requires; it is validated,
-# formatted and scanned as source, and never applied.
+# Provider and version constraints. No backend and no credentials: the module is
+# validated, formatted and scanned as source, and never applied.
 
 terraform {
   required_version = "~> 1.16"

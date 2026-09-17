@@ -200,9 +200,7 @@ test_untrusted_context_in_run_denied if {
 	contains(msg, "bind it to `env:`")
 }
 
-# The ban is on the interpolation itself rather than on a list of dangerous
-# fields, so a context that is harmless today is still denied: it has an
-# `env:`/"$VAR" equivalent like every other one.
+# The ban is on the interpolation itself, not on a list of dangerous fields.
 test_safe_context_in_run_also_denied if {
 	messages := deny with input as workflow_with_steps([{"run": "echo ${{ github.sha }}"}])
 	count(messages) == 1

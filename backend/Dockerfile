@@ -14,8 +14,7 @@ RUN uv sync --frozen --no-dev
 # Runtime stage: the venv and the application, nothing else.
 FROM python:3.14.7-slim@sha256:cad9a2c871761c413caa6fdd6441c783451e740a48aaeba60ae62a8b53525ef6
 
-# Debian has published fixes for these; this base image predates them. Named
-# individually rather than upgraded wholesale, which Docker's own guidance
+# Named individually rather than upgraded wholesale, which Docker's guidance
 # advises against for parent-image packages.
 RUN apt-get update \
     && apt-get install --yes --no-install-recommends --only-upgrade \
@@ -25,10 +24,8 @@ RUN apt-get update \
         perl-base \
     && rm -rf /var/lib/apt/lists/*
 
-# The application runs out of /app/.venv, which uv builds without seed packages,
-# so neither pip nor setuptools is ever reached at runtime. Both ship in the
-# base image and both carry known vulnerabilities; a package manager in a
-# runtime layer is attack surface rather than a feature.
+# The venv carries no seed packages, so neither is reached at runtime. A package
+# manager in a runtime layer is attack surface rather than a feature.
 RUN python -m pip uninstall --yes setuptools \
     && python -m pip uninstall --yes pip
 

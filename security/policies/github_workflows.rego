@@ -1,17 +1,12 @@
-# Policy for this repository's own GitHub Actions workflows.
-#
-# The pipeline scans the application it builds. These rules scan the pipeline,
-# so that conventions the workflows already follow are enforced by a gate
-# rather than by memory.
+# Policy for this repository's own GitHub Actions workflows: conventions the
+# workflows already follow, enforced by a gate rather than by memory.
 
 package github.workflows
 
 # --- Third-party actions are pinned to a commit SHA --------------------------
 #
-# A tag is a movable pointer. Whoever controls an action's repository can
-# repoint `v4` at new code, and every workflow trusting that tag runs it on the
-# next push. A 40-character commit SHA is immutable, so a review of the action's
-# code stays valid until the pin is deliberately bumped.
+# A tag is a movable pointer; a 40-character commit SHA is not, so a review of
+# the action's code stays valid until the pin is deliberately bumped.
 
 deny contains msg if {
 	some job_name, job in input.jobs
@@ -49,9 +44,8 @@ pinned(ref) if regex.match(`@[0-9a-f]{40}$`, ref)
 
 # --- Every workflow declares its token scope ---------------------------------
 #
-# Without a `permissions` block the job inherits the repository's default token
-# scope, which is broader than any single workflow needs. Declaring it makes the
-# grant explicit, reviewable, and least-privilege by default.
+# Without a `permissions` block the job inherits the repository default, which
+# is broader than any single workflow needs.
 
 deny contains msg if {
 	not input.permissions
@@ -60,9 +54,8 @@ deny contains msg if {
 
 # --- `pull_request_target` is banned -----------------------------------------
 #
-# It evaluates in the base repository's context with a write-scoped token while
-# operating on code the pull request author controls. `pull_request` runs the
-# same checks with a read-only token and no access to repository secrets.
+# It runs in the base repository's context with a write-scoped token on code the
+# pull request author controls. `pull_request` does the same job read-only.
 
 deny contains msg if {
 	"pull_request_target" in triggers
@@ -96,8 +89,8 @@ triggers contains on_value if is_string(on_value)
 
 # --- Container images are pinned by digest -----------------------------------
 #
-# A job container is as much a supply-chain input as an action, and a tag is as
-# movable in a registry as it is in git. `@sha256:` names one exact image.
+# A job container is a supply-chain input like an action, and a registry tag is
+# as movable as a git one.
 
 deny contains msg if {
 	some job_name, job in input.jobs
@@ -129,17 +122,8 @@ digest_pinned(image) if regex.match(`@sha256:[0-9a-f]{64}$`, image)
 
 # --- No `${{ }}` interpolation inside `run:` ---------------------------------
 #
-# GitHub substitutes `${{ }}` into the script before the shell parses it, so a
-# value an attacker controls -- a pull request title, a branch name -- arrives as
-# code rather than as data. The rule bans every expression rather than a list of
-# known-dangerous ones: the injectable set is GitHub's to change, and a rule that
-# enumerates it is out of date the moment they add a field. Binding the value to
-# `env:` and reading "$VAR" leaves the shell treating it as a string, which is
-# what GitHub's own hardening guidance recommends for all context data.
-#
-# Detection keys off the `${{` opener rather than a full-expression match, so a
-# malformed or exotic expression still denies instead of slipping through; the
-# matched text is only used to make the message specific.
+# GitHub substitutes before the shell parses, so an attacker-controlled value
+# arrives as code. Banning every expression keeps the rule from going stale.
 
 deny contains msg if {
 	some job_name, job in input.jobs

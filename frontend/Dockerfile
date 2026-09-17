@@ -17,17 +17,15 @@ ENV NODE_ENV=production \
     HOSTNAME=0.0.0.0 \
     PORT=3000
 
-# Debian has published a fix for this; this base image predates it. Named
-# individually rather than upgraded wholesale, which Docker's own guidance
+# Named individually rather than upgraded wholesale, which Docker's guidance
 # advises against for parent-image packages.
 RUN apt-get update \
     && apt-get install --yes --no-install-recommends --only-upgrade \
         libpcre2-8-0 \
     && rm -rf /var/lib/apt/lists/*
 
-# The standalone server starts with `node server.js` and never invokes npm.
-# What npm bundles is the whole of this image's Node-package surface, so it goes
-# with it. The builder stage above still has npm, which is where `npm ci` runs.
+# The standalone server never invokes npm, and npm's bundled packages are this
+# image's whole Node-package surface. The builder stage keeps it for `npm ci`.
 RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
 
 WORKDIR /app

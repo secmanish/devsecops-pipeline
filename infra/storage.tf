@@ -1,8 +1,5 @@
-# Object storage for task attachments, plus the bucket that receives its access
-# logs.
-#
-# Bucket names are globally unique across all of AWS, so the account ID is
-# appended rather than relying on the project name being unclaimed.
+# Object storage for task attachments, plus the bucket receiving its access
+# logs. Bucket names are globally unique, hence the account ID suffix.
 
 resource "aws_kms_key" "storage" {
   description             = "${var.project_name} object storage encryption"
@@ -38,9 +35,8 @@ resource "aws_s3_bucket_public_access_block" "logs" {
   restrict_public_buckets = true
 }
 
-# BucketOwnerEnforced disables ACLs entirely. Access is then decided by policy
-# alone, which removes the object-ACL path that makes bucket exposure hard to
-# reason about.
+# BucketOwnerEnforced disables ACLs entirely, so access is decided by policy
+# alone.
 resource "aws_s3_bucket_ownership_controls" "logs" {
   bucket = aws_s3_bucket.logs.id
 

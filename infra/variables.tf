@@ -1,7 +1,5 @@
-# Input variables for the Tasklane infrastructure module.
-#
-# Every variable carries a default so that `terraform validate` runs with no
-# input file, no credentials and no backend.
+# Input variables. Every one carries a default so `terraform validate` runs with
+# no input file, no credentials and no backend.
 
 variable "project_name" {
   description = "Name prefix applied to every resource and to the default tag set."

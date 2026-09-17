@@ -1,7 +1,5 @@
-# VPC, subnets, routing, and the security group fronting the database.
-#
-# Public subnets carry the load balancer. Application tasks and the database sit
-# in private subnets with no route to the internet gateway.
+# VPC, subnets, routing, and the security group fronting the database. Private
+# subnets have no route to the internet gateway.
 
 data "aws_availability_zones" "available" {
   state = "available"
@@ -19,10 +17,8 @@ resource "aws_vpc" "main" {
   }
 }
 
-# Revokes every rule on the VPC's default security group. The resource adopts
-# the group AWS creates automatically, and declaring it with no rule blocks
-# leaves it empty, so anything launched without an explicit group gets no
-# connectivity rather than the permissive default.
+# Adopts the group AWS creates automatically; declaring it with no rule blocks
+# leaves it empty, so an unassigned resource gets no connectivity.
 resource "aws_default_security_group" "main" {
   vpc_id = aws_vpc.main.id
 
@@ -133,9 +129,8 @@ resource "aws_vpc_security_group_ingress_rule" "database_postgres" {
   ip_protocol       = "tcp"
 }
 
-# Customer-managed key for the flow log group. CloudWatch Logs encrypts with an
-# AWS-owned key otherwise, which cannot be audited, rotated on our schedule, or
-# revoked.
+# Customer-managed so the key can be audited, rotated and revoked. CloudWatch
+# Logs would otherwise use an AWS-owned key.
 resource "aws_kms_key" "logs" {
   description             = "${var.project_name} CloudWatch Logs encryption"
   enable_key_rotation     = true

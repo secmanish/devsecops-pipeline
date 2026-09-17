@@ -1,10 +1,5 @@
-# Roles assumed by the application and by the AWS services that write telemetry
-# on its behalf.
-#
-# Every trust policy is conditioned on the account, and every permission names
-# the resource it applies to. No statement uses a wildcard resource, and no
-# managed policy is attached except the one AWS publishes for RDS enhanced
-# monitoring.
+# Roles assumed by the application and by the AWS services writing telemetry on
+# its behalf. Every trust policy is account-conditioned; no resource wildcards.
 
 # --- VPC flow logs -----------------------------------------------------------
 
@@ -91,9 +86,8 @@ resource "aws_iam_role" "rds_monitoring" {
   }
 }
 
-# The one managed policy in the module. AWS publishes it specifically for this
-# role, and a hand-written copy would drift from the metric set RDS actually
-# emits.
+# AWS publishes this policy for this role; a hand-written copy would drift from
+# the metric set RDS emits.
 resource "aws_iam_role_policy_attachment" "rds_monitoring" {
   role       = aws_iam_role.rds_monitoring.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonRDSEnhancedMonitoringRole"

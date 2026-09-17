@@ -1,8 +1,5 @@
-# Postgres instance backing the application, in the private subnets.
-#
-# No credential appears in this module. RDS generates the master password into
-# Secrets Manager and owns its rotation, so there is nothing to place in a
-# variable, a tfvars file, or state.
+# Postgres instance backing the application, in the private subnets. RDS
+# generates and rotates the master password, so no credential is in this module.
 
 resource "aws_kms_key" "database" {
   description             = "${var.project_name} database encryption"
@@ -33,9 +30,8 @@ resource "aws_db_subnet_group" "main" {
   }
 }
 
-# rds.force_ssl rejects unencrypted connections at the server, which is the only
-# place the requirement can be enforced. A client-side sslmode is a request, not
-# a control.
+# The server parameter is the only place TLS can be required. A client-side
+# sslmode is a request, not a control.
 resource "aws_db_parameter_group" "main" {
   name_prefix = "${var.project_name}-postgres-"
   family      = "postgres${var.database_engine_version}"
@@ -70,9 +66,8 @@ resource "aws_db_instance" "main" {
   db_name  = var.database_name
   username = var.database_username
 
-  # Password generated, stored and rotated by RDS. Mutually exclusive with
-  # `password`, which is the attribute that would otherwise put a credential in
-  # state in cleartext.
+  # Mutually exclusive with `password`, which would put a credential in state
+  # in cleartext.
   manage_master_user_password   = true
   master_user_secret_kms_key_id = aws_kms_key.database.key_id
 

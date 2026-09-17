@@ -18,9 +18,8 @@ jobs:
     env:
       TRIVY_VERSION: 0.74.0
       TRIVY_SHA256: 2ae6fe3ee734b7fdf11335663e18c75ea12dccc76062f09f164a3b0f8be4371a
-      # `run:` blocks never interpolate expressions, so the matrix value is bound
-      # here and read as a shell variable. The directory name is also the build
-      # context and the image tag.
+      # `run:` cannot read the matrix, so the value is bound here. The directory
+      # name doubles as the build context and the image tag.
       IMAGE: ${{ matrix.image }}
       IMAGE_REF: tasklane-${{ matrix.image }}:ci
     steps:
@@ -41,8 +40,7 @@ jobs:
         id: date
         run: echo "date=$(date -u +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
 
-      # Two databases, both downloaded at runtime: the vulnerability DB and the
-      # misconfiguration checks bundle. Keyed per image because the two matrix
+      # Both databases download at runtime. Keyed per image because the matrix
       # jobs run in parallel and would otherwise race to write one key.
       - name: Restore Trivy databases
         id: db-cache
@@ -67,11 +65,8 @@ jobs:
             --format sarif \
             --output "trivy-image-$IMAGE.sarif"
 
-      # A second pass, because `--severity` filters the report itself and the
-      # artifact above keeps every severity. `--ignore-unfixed` narrows the gate
-      # to what a rebuild can act on: the base distribution ships CRITICALs with
-      # no patched package, and blocking on those would mute the gate rather than
-      # harden the image. They stay in the SARIF and in the benchmark below.
+      # A second pass, because `--severity` filters the report itself.
+      # `--ignore-unfixed` narrows the gate to what a rebuild can act on.
       - name: Gate on fixable HIGH and CRITICAL
         run: |
           trivy image "$IMAGE_REF" \
@@ -93,9 +88,8 @@ jobs:
             --format json \
             --output "trivy-image-$IMAGE-cis.json"
 
-      # After the scans, not before: the checks bundle arrives with the first
-      # misconfiguration scan rather than with `--download-db-only`. `always()`
-      # keeps the cache warm when the gate above fails.
+      # After the scans: the checks bundle arrives with the first misconfig scan,
+      # not with `--download-db-only`. `always()` keeps the cache warm on failure.
       - name: Save Trivy databases
         if: always() && steps.db-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
