@@ -34,6 +34,13 @@ jobs:
             --policy security/policies \
             --namespace github.workflows
 
+      - name: Check Dockerfiles
+        if: always()
+        run: |
+          conftest test backend/Dockerfile frontend/Dockerfile \
+            --policy security/policies \
+            --namespace dockerfile
+
       - name: Generate SARIF
         if: always()
         run: |
@@ -41,10 +48,14 @@ jobs:
             --policy security/policies \
             --namespace github.workflows \
             --output sarif --no-fail > conftest.sarif
+          conftest test backend/Dockerfile frontend/Dockerfile \
+            --policy security/policies \
+            --namespace dockerfile \
+            --output sarif --no-fail > conftest-dockerfile.sarif
 
       - name: Upload SARIF
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: conftest-sarif
-          path: conftest.sarif
+          path: conftest*.sarif
