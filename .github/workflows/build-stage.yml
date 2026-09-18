@@ -158,6 +158,7 @@ jobs:
       LOCAL_REF: tasklane-${{ matrix.image }}:ci
       REGISTRY: ghcr.io
       OWNER: ${{ github.repository_owner }}
+      REPO: ${{ github.event.repository.name }}
       IMAGE_TAG: ${{ github.sha }}
       GHCR_USER: ${{ github.actor }}
       GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -195,9 +196,10 @@ jobs:
         id: push
         run: |
           docker load -i "image-$IMAGE.tar.gz"
-          # GHCR rejects an uppercase path, and the owner keeps its casing here.
+          # GHCR rejects an uppercase path; owner and repository keep their casing.
           owner=$(echo "$OWNER" | tr '[:upper:]' '[:lower:]')
-          target="$REGISTRY/$owner/tasklane-$IMAGE:$IMAGE_TAG"
+          repo=$(echo "$REPO" | tr '[:upper:]' '[:lower:]')
+          target="$REGISTRY/$owner/$repo/$IMAGE:$IMAGE_TAG"
           echo "$GHCR_TOKEN" | docker login "$REGISTRY" -u "$GHCR_USER" --password-stdin
           docker tag "$LOCAL_REF" "$target"
           docker push "$target"
