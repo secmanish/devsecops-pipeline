@@ -11,6 +11,14 @@ env:
     failOnWarning: false
 
 jobs:
+  # Accepted exceptions. Must precede the scans whose alerts they rewrite.
+  - type: alertFilter
+    alertFilters:
+      # HTTP Only Site: the ephemeral stack serves plain HTTP by design.
+      - ruleId: 10106
+        newRisk: Info
+        context: tasklane
+
   # An import that fails is a plan error, so an unreachable API cannot pass green.
   - type: openapi
     parameters:
