@@ -1,0 +1,15 @@
+# Ephemeral DAST target, built from the checkout. `up --wait` blocks on each
+# image's HEALTHCHECK so ZAP never scans a server that isn't listening.
+name: tasklane-dast
+
+services:
+  backend:
+    build: ../../backend
+    # Loopback only: ZAP runs with host networking, nothing else needs to reach it.
+    ports:
+      - "127.0.0.1:8000:8000"
+
+  frontend:
+    build: ../../frontend
+    ports:
+      - "127.0.0.1:3000:3000"
