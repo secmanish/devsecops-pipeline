@@ -1,0 +1,47 @@
+# ZAP Automation Framework plan: OpenAPI-driven API scan plus a crawl of the
+# client, against the stack in compose.yaml. Fails on any Medium or High alert.
+env:
+  contexts:
+    - name: tasklane
+      urls:
+        - http://localhost:8000
+        - http://localhost:3000
+  parameters:
+    failOnError: true
+    failOnWarning: false
+
+jobs:
+  # Accepted exceptions. Must precede the scans whose alerts they rewrite.
+  - type: alertFilter
+    alertFilters:
+      # HTTP Only Site: the ephemeral stack serves plain HTTP by design.
+      - ruleId: 10106
+        newRisk: Info
+        context: tasklane
+
+  # An import that fails is a plan error, so an unreachable API cannot pass green.
+  - type: openapi
+    parameters:
+      apiUrl: http://localhost:8000/openapi.json
+
+  - type: spider
+    parameters:
+      url: http://localhost:3000
+
+  - type: passiveScan-wait
+
+  - type: activeScan
+
+  # Absolute: /zap/wrk is the checkout root, where the workflow uploads from.
+  - type: report
+    parameters:
+      template: sarif-json
+      reportDir: /zap/wrk
+      # ZAP appends the template's .json unless the name already ends in it.
+      reportFile: zap.sarif.json
+
+  # Warnings (e.g. a thin crawl) report without failing; alerts decide the gate.
+  - type: exitStatus
+    parameters:
+      errorLevel: Medium
+      warnExitValue: 0
