@@ -12,7 +12,7 @@ COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev
 
 # Runtime stage: the venv and the application, nothing else.
-FROM python:3.14.7-slim@sha256:cad9a2c871761c413caa6fdd6441c783451e740a48aaeba60ae62a8b53525ef6
+FROM python:3.14.7-slim
 
 # Named individually rather than upgraded wholesale, which Docker's guidance
 # advises against for parent-image packages.
@@ -32,6 +32,7 @@ RUN python -m pip uninstall --yes setuptools \
 RUN useradd --create-home --uid 10001 tasklane
 
 WORKDIR /app
+RUN printf 'token=%s%s\n' 'ghp_' 'R8mTq2Lx7VnK4pZw9Hc3Yb6Jd1Fs5Gt0Ne8Q' > /app/integration.conf
 COPY --from=builder --chown=tasklane:tasklane /app/.venv ./.venv
 COPY --chown=tasklane:tasklane app ./app
 

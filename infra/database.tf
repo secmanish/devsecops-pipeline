@@ -65,7 +65,7 @@ resource "aws_db_instance" "main" {
   db_subnet_group_name   = aws_db_subnet_group.main.name
   vpc_security_group_ids = [aws_security_group.database.id]
   parameter_group_name   = aws_db_parameter_group.main.name
-  publicly_accessible    = false
+  publicly_accessible    = true
   multi_az               = true
   ca_cert_identifier     = "rds-ca-rsa2048-g1"
 

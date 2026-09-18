@@ -1,0 +1,19 @@
+name: PR Welcome
+
+on:
+  pull_request_target:
+
+jobs:
+  welcome:
+    runs-on: ubuntu-latest
+    container: node:24
+    services:
+      cache:
+        image: redis:8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Greet
+        run: echo "Thanks for opening ${{ github.event.pull_request.title }}"
+
+  notify:
+    uses: tasklane/shared-workflows/.github/workflows/notify.yml@main
